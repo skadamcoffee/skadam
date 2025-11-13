@@ -65,7 +65,7 @@ export function OrderList() {
 
     fetchOrders()
 
-    // Subscribe to order updates
+    // Real-time updates
     const subscription = supabase
       .channel("orders_channel")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
@@ -98,7 +98,6 @@ export function OrderList() {
         .from("orders")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", orderId)
-
       if (error) throw error
     } catch (error) {
       console.error("Error updating order:", error)
@@ -164,7 +163,7 @@ export function OrderList() {
       </div>
 
       {/* Orders */}
-      <div className="space-y-2">
+      <div className="space-y-3">
         {isLoading ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">Loading orders...</p>
@@ -199,7 +198,10 @@ export function OrderList() {
 
                   <div className="flex flex-col items-end gap-2">
                     <p className="font-bold text-lg">{order.total_price.toFixed(2)} د.ت</p>
-                    <Select value={order.status} onValueChange={(status) => updateOrderStatus(order.id, status)}>
+                    <Select
+                      value={order.status}
+                      onValueChange={(status) => updateOrderStatus(order.id, status)}
+                    >
                       <SelectTrigger className="w-32">
                         <SelectValue />
                       </SelectTrigger>
@@ -212,14 +214,15 @@ export function OrderList() {
                       </SelectContent>
                     </Select>
 
-                    {/* 🗑️ Delete Button */}
+                    {/* Delete Button */}
                     <Button
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDelete(order.id)}
-                      className="mt-1 flex items-center gap-1"
+                      className="flex items-center gap-2 text-white bg-red-600 hover:bg-red-700"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" />
+                      Delete
                     </Button>
                   </div>
                 </div>
