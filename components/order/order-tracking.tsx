@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -57,12 +57,9 @@ const emojiMap: { [key: number]: string } = {
   5: "🤩",
 }
 
-export function OrderTracking() {
-  const params = useParams()
+export function OrderTracking({ orderId }: { orderId: string }) {
   const searchParams = useSearchParams()
   const tableNumber = searchParams.get("table")
-  const orderIdRaw = params.orderId || ""
-  const orderId = orderIdRaw.replace(/[<>]/g, "").trim() // sanitize ID
 
   const [order, setOrder] = useState<Order | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -71,8 +68,6 @@ export function OrderTracking() {
   const supabase = createClient()
 
   useEffect(() => {
-    if (!orderId) return
-
     const fetchOrder = async () => {
       setIsLoading(true)
       try {
@@ -92,13 +87,12 @@ export function OrderTracking() {
             )
           `)
           .eq("id", orderId)
-          .maybeSingle() // allows 0 rows without error
+          .single()
 
         if (error) throw error
-        setOrder(data || null)
+        setOrder(data)
       } catch (error) {
         console.error("Error fetching order:", error)
-        setOrder(null)
       } finally {
         setIsLoading(false)
       }
@@ -121,15 +115,14 @@ export function OrderTracking() {
 
     const fetchFeedback = async () => {
       try {
-        const { data, error } = await supabase
-          .from("feedback")
-          .select("*")
-          .eq("order_id", orderId)
-          .maybeSingle()
+        const { data, error } = await supabase.from("feedback").select("*").eq("order_id", orderId).limit(1)
 
-        if (!error && data) setOrderFeedback(data)
+        if (error) throw error
+        if (data && data.length > 0) {
+          setOrderFeedback(data[0])
+        }
       } catch (err) {
-        // no feedback yet
+        console.error("Error fetching feedback:", err)
       }
     }
 
@@ -137,7 +130,6 @@ export function OrderTracking() {
     fetchNotifications()
     fetchFeedback()
 
-    // Subscribe to order updates
     const orderSubscription = supabase
       .channel(`orders:${orderId}`)
       .on(
@@ -150,11 +142,10 @@ export function OrderTracking() {
         },
         (payload) => {
           setOrder((prev) => (prev ? { ...prev, ...payload.new } : null))
-        }
+        },
       )
       .subscribe()
 
-    // Subscribe to notifications
     const notificationSubscription = supabase
       .channel(`notifications:${orderId}`)
       .on(
@@ -167,7 +158,7 @@ export function OrderTracking() {
         },
         (payload) => {
           setNotifications((prev) => [payload.new as Notification, ...prev])
-        }
+        },
       )
       .subscribe()
 
@@ -212,7 +203,7 @@ export function OrderTracking() {
           <p className="text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
         </div>
 
-        {/* Notifications */}
+        {/* Notifications Section */}
         {notifications.length > 0 && (
           <Card className="p-4 bg-primary/5 border-primary/20">
             <div className="flex items-start gap-3 mb-3">
