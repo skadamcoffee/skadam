@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -57,9 +57,12 @@ const emojiMap: { [key: number]: string } = {
   5: "🤩",
 }
 
-export function OrderTracking({ orderId }: { orderId: string }) {
+export function OrderTracking() {
+  const params = useParams()
   const searchParams = useSearchParams()
   const tableNumber = searchParams.get("table")
+  const orderIdRaw = params.orderId || ""
+  const orderId = orderIdRaw.replace(/[<>]/g, "").trim() // sanitize ID
 
   const [order, setOrder] = useState<Order | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -68,6 +71,8 @@ export function OrderTracking({ orderId }: { orderId: string }) {
   const supabase = createClient()
 
   useEffect(() => {
+    if (!orderId) return
+
     const fetchOrder = async () => {
       setIsLoading(true)
       try {
@@ -87,12 +92,13 @@ export function OrderTracking({ orderId }: { orderId: string }) {
             )
           `)
           .eq("id", orderId)
-          .single()
+          .maybeSingle() // allows 0 rows without error
 
         if (error) throw error
-        setOrder(data)
+        setOrder(data || null)
       } catch (error) {
         console.error("Error fetching order:", error)
+        setOrder(null)
       } finally {
         setIsLoading(false)
       }
@@ -115,11 +121,13 @@ export function OrderTracking({ orderId }: { orderId: string }) {
 
     const fetchFeedback = async () => {
       try {
-        const { data, error } = await supabase.from("feedback").select("*").eq("order_id", orderId).single()
+        const { data, error } = await supabase
+          .from("feedback")
+          .select("*")
+          .eq("order_id", orderId)
+          .maybeSingle()
 
-        if (!error && data) {
-          setOrderFeedback(data)
-        }
+        if (!error && data) setOrderFeedback(data)
       } catch (err) {
         // No feedback yet
       }
@@ -202,7 +210,7 @@ export function OrderTracking({ orderId }: { orderId: string }) {
           <p className="text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
         </div>
 
-        {/* Notifications Section */}
+        {/* Notifications */}
         {notifications.length > 0 && (
           <Card className="p-4 bg-primary/5 border-primary/20">
             <div className="flex items-start gap-3 mb-3">
