@@ -1,10 +1,11 @@
 import { OrderTracking } from "@/components/order/order-tracking"
 import { Suspense } from "react"
 
-export default function Page({ params }: { params: { id: string } }) {
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <OrderTracking orderId={params.id} />
+      <OrderTracking orderId={id} />
     </Suspense>
   )
 }
