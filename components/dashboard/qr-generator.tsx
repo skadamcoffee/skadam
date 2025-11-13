@@ -92,7 +92,6 @@ export function QRGenerator() {
   const deleteQR = async (id: string) => {
     try {
       const { error } = await supabase.from("table_qr_codes").delete().eq("id", id)
-
       if (error) throw error
       setDeleteConfirm(null)
       await fetchQRCodes()
@@ -104,14 +103,27 @@ export function QRGenerator() {
 
   const downloadQR = (tableNum: string) => {
     const element = document.getElementById(`qr-${tableNum}`)
-    if (element) {
-      const canvas = element.querySelector("canvas")
-      if (canvas) {
-        const link = document.createElement("a")
-        link.href = canvas.toDataURL("image/png")
-        link.download = `table-${tableNum}-qr.png`
-        link.click()
-      }
+    if (!element) return
+
+    const svg = element.querySelector("svg")
+    if (!svg) return
+
+    const serializer = new XMLSerializer()
+    const source = serializer.serializeToString(svg)
+    const img = new Image()
+    img.src = 'data:image/svg+xml;base64,' + btoa(source)
+    img.onload = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0)
+
+      const link = document.createElement("a")
+      link.href = canvas.toDataURL("image/png")
+      link.download = `table-${tableNum}-qr.png`
+      link.click()
     }
   }
 
@@ -160,7 +172,6 @@ export function QRGenerator() {
             >
               <Card className="flex flex-col items-center p-4">
                 <h3 className="font-bold text-lg mb-3">Table {qr.table_number}</h3>
-
                 <div id={`qr-${qr.table_number}`} className="mb-4 p-2 bg-white rounded">
                   <QRCodeSVG value={qr.qr_data} size={200} level="H" includeMargin={true} />
                 </div>
@@ -182,16 +193,13 @@ export function QRGenerator() {
       </div>
 
       {qrCodes.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12 text-muted-foreground"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12 text-muted-foreground">
           <div className="text-4xl mb-2">📱</div>
           <p>No QR codes generated yet. Create one above to get started!</p>
         </motion.div>
       )}
 
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
