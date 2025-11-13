@@ -223,7 +223,7 @@ export function OrderList() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleDelete(order.id)}
+                      onClick={() => deleteorder(order.id)}
                       className="flex items-center gap-2 text-white bg-red-600 hover:bg-red-700"
                     >
                       <Trash2 className="w-4 h-4" />
