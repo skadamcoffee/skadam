@@ -104,16 +104,21 @@ export function OrderList() {
     }
   }
 
-  const handleDelete = async (orderId: string) => {
-    if (!confirm("Are you sure you want to delete this order?")) return
-    try {
-      const { error } = await supabase.from("orders").delete().eq("id", orderId)
-      if (error) throw error
-      setOrders((prev) => prev.filter((o) => o.id !== orderId))
-    } catch (error) {
-      console.error("Error deleting order:", error)
-    }
+  const deleteOrder = async (orderId: string) => {
+  const confirmDelete = confirm("Are you sure you want to delete this order?")
+  if (!confirmDelete) return
+
+  const { error } = await supabase.from("orders").delete().eq("id", orderId)
+
+  if (error) {
+    console.error("Error deleting order:", error)
+    alert("Failed to delete order: " + error.message)
+  } else {
+    setOrders(orders.filter((order) => order.id !== orderId))
+    alert("Order deleted successfully!")
   }
+}
+
 
   const stats = {
     total: orders.length,
