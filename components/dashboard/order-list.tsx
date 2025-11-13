@@ -6,8 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Clock, ChefHat, Package, CheckCircle2, Trash2, Archive, Loader2 } from "lucide-react"
-import { toast } from "sonner"
+import { Clock, ChefHat, Package, CheckCircle2, Trash2 } from "lucide-react"
 
 interface Order {
   id: string
@@ -34,7 +33,6 @@ export function OrderList() {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
   const [statusFilter, setStatusFilter] = useState<string>("pending")
   const [isLoading, setIsLoading] = useState(true)
-  const [deleting, setDeleting] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -54,7 +52,6 @@ export function OrderList() {
               products(name)
             )
           `)
-          .eq("archived", false)
           .order("created_at", { ascending: false })
 
         if (error) throw error
@@ -68,7 +65,7 @@ export function OrderList() {
 
     fetchOrders()
 
-    // Subscribe to real-time updates
+    // Subscribe to order updates
     const subscription = supabase
       .channel("orders_channel")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, (payload) => {
@@ -76,11 +73,15 @@ export function OrderList() {
           setOrders((prev) => [payload.new as Order, ...prev])
         } else if (payload.eventType === "UPDATE") {
           setOrders((prev) => prev.map((o) => (o.id === payload.new.id ? (payload.new as Order) : o)))
+        } else if (payload.eventType === "DELETE") {
+          setOrders((prev) => prev.filter((o) => o.id !== payload.old.id))
         }
       })
       .subscribe()
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -97,34 +98,21 @@ export function OrderList() {
         .from("orders")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", orderId)
+
       if (error) throw error
-      toast.success(`Order updated to ${newStatus}`)
     } catch (error) {
-      toast.error("Failed to update order")
-      console.error(error)
+      console.error("Error updating order:", error)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to permanently delete this order?")) return
-    setDeleting(id)
-    const { error } = await supabase.from("orders").delete().eq("id", id)
-    if (error) {
-      toast.error("Failed to delete order")
-    } else {
-      toast.success("Order deleted successfully")
-      setOrders((prev) => prev.filter((o) => o.id !== id))
-    }
-    setDeleting(null)
-  }
-
-  const handleArchive = async (id: string) => {
-    const { error } = await supabase.from("orders").update({ archived: true }).eq("id", id)
-    if (error) {
-      toast.error("Failed to archive order")
-    } else {
-      toast.success("Order archived")
-      setOrders((prev) => prev.filter((o) => o.id !== id))
+  const handleDelete = async (orderId: string) => {
+    if (!confirm("Are you sure you want to delete this order?")) return
+    try {
+      const { error } = await supabase.from("orders").delete().eq("id", orderId)
+      if (error) throw error
+      setOrders((prev) => prev.filter((o) => o.id !== orderId))
+    } catch (error) {
+      console.error("Error deleting order:", error)
     }
   }
 
@@ -206,9 +194,7 @@ export function OrderList() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(order.created_at).toLocaleTimeString()}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleTimeString()}</p>
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
@@ -226,29 +212,15 @@ export function OrderList() {
                       </SelectContent>
                     </Select>
 
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleArchive(order.id)}
-                        className="flex items-center"
-                      >
-                        <Archive className="w-4 h-4 mr-1" /> Archive
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(order.id)}
-                        disabled={deleting === order.id}
-                      >
-                        {deleting === order.id ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 mr-1" />
-                        )}
-                        Delete
-                      </Button>
-                    </div>
+                    {/* 🗑️ Delete Button */}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(order.id)}
+                      className="mt-1 flex items-center gap-1"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete
+                    </Button>
                   </div>
                 </div>
               </Card>
