@@ -129,7 +129,7 @@ export function OrderTracking() {
 
         if (!error && data) setOrderFeedback(data)
       } catch (err) {
-        // No feedback yet
+        // no feedback yet
       }
     }
 
@@ -137,6 +137,7 @@ export function OrderTracking() {
     fetchNotifications()
     fetchFeedback()
 
+    // Subscribe to order updates
     const orderSubscription = supabase
       .channel(`orders:${orderId}`)
       .on(
@@ -149,10 +150,11 @@ export function OrderTracking() {
         },
         (payload) => {
           setOrder((prev) => (prev ? { ...prev, ...payload.new } : null))
-        },
+        }
       )
       .subscribe()
 
+    // Subscribe to notifications
     const notificationSubscription = supabase
       .channel(`notifications:${orderId}`)
       .on(
@@ -165,7 +167,7 @@ export function OrderTracking() {
         },
         (payload) => {
           setNotifications((prev) => [payload.new as Notification, ...prev])
-        },
+        }
       )
       .subscribe()
 
